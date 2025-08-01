@@ -26,13 +26,12 @@ SECRET_KEY = 'django-insecure-d!_dm5twvvobi%-7jfdlyyxz+10#^n#lxx@5@_ipgq7*@y#0s^
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
 WALLETPASS = {
-    'CERT_PATH': 'certs/certificate.pem',
-    'KEY_PATH': 'certs/private.key',
-    'KEY_PASSWORD': "Tapbak@3838!",
-    'PASS_TYPE_ID' : "pass.co.tapback.loyalty", 
-    "TEAM_ID": "1234ABCDEF",
+    "CERT_PATH": str(BASE_DIR / "certs" / "certificate.pem"),
+    "KEY_PATH": str(BASE_DIR / "certs" / "private.pem"),
+    "KEY_PASSWORD": "Tapbak@3838!",
+    "PASS_TYPE_ID": "pass.co.tapback.loyalty",
+    "TEAM_ID": "QK2FSS3243",
     "ORGANIZATION_NAME": "Tapbak",
 }
 # Application definition
