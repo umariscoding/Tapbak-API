@@ -1,7 +1,7 @@
 {
   "customer_id": "CUST123456",
   "name": "John Doe",
-  "balance": "$150.00",
+  "noOfAwards": "5",
   "points": "2,500",
   "memberLevel": "Gold",
   "membershipId": "MBR789012",

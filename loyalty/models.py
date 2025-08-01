@@ -17,6 +17,7 @@ class LoyaltyCard(models.Model):
     support = models.CharField(max_length=255)
     terms = models.CharField(max_length=255)
     locations = models.CharField(max_length=255)
+    
     class Meta: 
         db_table = "loyalty_card"
 
@@ -27,6 +28,7 @@ class LoyaltyCard(models.Model):
         return self.customer_id
 
     def __repr__(self):
+        return f"<LoyaltyCard: {self.customer_id}>"
 
 class Vendor(models.Model): 
     vendorId = models.CharField(max_length=255)
