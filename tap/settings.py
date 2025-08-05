@@ -33,7 +33,7 @@ WALLETPASS = {
     "CERT_PATH": str(BASE_DIR / "certs" / "signerCert.pem"),
     "KEY_PATH": str(BASE_DIR / "certs" / "signerKey.key"),
 
-    "KEY_PASSWORD": "Tapbak@3838!",
+    "KEY_PASSWORD": None,
     "PASS_TYPE_ID": "pass.co.tapback.loyalty",
     "TEAM_ID": "QK2FSS3243",
     "ORGANIZATION_NAME": "Tapbak",

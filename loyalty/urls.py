@@ -3,6 +3,6 @@ from . import views
 
 urlpatterns = [
     path("create", views.create_pass_view, name="create-pass"),
-    path("download", views.download_pass_view, name="download-pass"),
-    path("test", views.test_page_view, name="test-page"),
+    # path("v1/devices/<str:deviceLibraryIdentifier>/registrations/<str:passTypeIdentifier>/<str:serialNumber>", views.update_pass_view, name="update-pass"),
+    # path("v1/passes/<str:passTypeIdentifier>/<str:serialNumber>", views.update_pass_view, name="update-pass"),
 ]
