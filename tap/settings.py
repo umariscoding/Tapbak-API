@@ -25,10 +25,14 @@ SECRET_KEY = 'django-insecure-d!_dm5twvvobi%-7jfdlyyxz+10#^n#lxx@5@_ipgq7*@y#0s^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
+WALLETPASS_CONF = {
+    "APPLE_WWDRCA_PEM_PATH": str(BASE_DIR / "certs" / "wwdr.pem"),
+}
 WALLETPASS = {
-    "CERT_PATH": str(BASE_DIR / "certs" / "certificate.pem"),
-    "KEY_PATH": str(BASE_DIR / "certs" / "private.pem"),
+    "CERT_PATH": str(BASE_DIR / "certs" / "signerCert.pem"),
+    "KEY_PATH": str(BASE_DIR / "certs" / "signerKey.key"),
+
     "KEY_PASSWORD": "Tapbak@3838!",
     "PASS_TYPE_ID": "pass.co.tapback.loyalty",
     "TEAM_ID": "QK2FSS3243",

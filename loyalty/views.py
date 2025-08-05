@@ -6,106 +6,144 @@ import json
 
 instance = PassBuilder()
 
-@api_view(["POST"])
+@api_view(["GET"])
 def create_pass_view(request):
-    # Handle both JSON and form data
-    if request.content_type == 'application/json':
-        data = json.loads(request.body)
-    else:
-        data = request.POST
-    
-    print("Received data:", data)
-    
-    customer_id = data.get("customer_id")
+    customer_id = "1234561237890"
     if customer_id:
-        background_color = data.get("backgroundColor")
-        foreground_color = data.get("foregroundColor")
-        label_color = data.get("labelColor")
-        name = data.get("name")
-        member_level = data.get("memberLevel")
-        next_appointment = data.get("nextAppointment")
-        points = data.get("points")
-        tier_progress = data.get("tierProgress")
-        expires = data.get("expires")
-        noOfAwards = data.get("noOfAwards")
-        membership_id = data.get("membershipId")
-        rewards_details = data.get("rewardsDetails")
-        support = data.get("support")
-        terms = data.get("terms")
-        locations = data.get("locations")
-        relevant_date = data.get("relevantDate")
+        background_color = "rgb(21, 21, 21)"
+        foreground_color = "rgb(255, 255, 255)"
+        label_color = "rgb(255, 255, 255)"
+        locations = [{
+            "longitude": 12.345678,
+            "latitude": 12.345678,
+            "relevantText": "You're near my home."
+        }]
+        relevant_date = "2021-08-28T00:00-18:00"
     
-    # Create a simple pass for now
+    # Create an event ticket pass matching the provided JSON
     builder = PassBuilder()
     builder.pass_data_required.update({
-        "serialNumber": f"customer-{customer_id or '123'}",
-        "description": "Loyalty Card",
-        "organizationName": "TapBak",
+        "serialNumber": f"event-{customer_id or 'nmyuxofgna'}",
+        "description": "Event Ticket",
+        "organizationName": "Tapbak",
+        "passTypeIdentifier": "pass.co.tapback.loyalty",
+        "teamIdentifier": "QK2FSS3243"
     })
 
     builder.pass_data.update({
-        # Colors
-        "backgroundColor": background_color or "rgb(60, 65, 76)",
+        
+        "backgroundColor": background_color or "rgb(21, 21, 21)",
         "foregroundColor": foreground_color or "rgb(255, 255, 255)",
         "labelColor": label_color or "rgb(255, 255, 255)",
-        
-        # Barcode
-        "barcode": {
-            "message": membership_id or "123456789",
-            "format": "PKBarcodeFormatPDF417",
-            "messageEncoding": "iso-8859-1"
-        },
-        
-        # Store Card Pass Type with Text Fields
+        "icon": "icon.png",
+        "logoText": "Tapbak",
+        "logoImage": "logo.png",
         "storeCard": {
-            "primaryFields": [{
-                "key": "awards",
-                "label": "Awards",
-                "value": noOfAwards or "$50.00", 
-                "textAlignment": "PKTextAlignmentCenter"
+            "headerFields": [{
+                "label": "MEMBERSHIP ID",
+                "key": "membershipId",
+                "value": "1234567890"
             }],
             
             "secondaryFields": [{
-                "key": "member_level",
-                "label": "Member Level",
-                "value": member_level or "Gold",
-                "textAlignment": "PKTextAlignmentLeft"
-            }, {
-                "key": "points",
-                "label": "Points",
-                "value": points or "1,250",
-                "textAlignment": "PKTextAlignmentRight"
+                "key": "name",
+                "label": "NAME",
+                "value": "John Doe"
             }],
             
             "auxiliaryFields": [{
-                "key": "expires",
-                "label": "Expires",
-                "value": expires or "2024-12-31",
-                "textAlignment": "PKTextAlignmentCenter"
-            }],
-            
-            "headerFields": [{
-                "key": "name",
-                "label": "NAME",
-                "value": name or "TapBak",
-                "textAlignment": "PKTextAlignmentCenter"
+                "key": "memberLevel",
+                "label": "MEMBER LEVEL",
+                "value": "Gold"
             }],
             
             "backFields": [{
-                "key": "terms",
-                "label": "Terms & Conditions",
-                "value": terms or "Valid at participating locations. Cannot be combined with other offers.",
-                "textAlignment": "PKTextAlignmentJustified"
-            }, {
-                "key": "support",
-                "label": "Support",
-                "value": support or "support@tapbak.com",
-                "textAlignment": "PKTextAlignmentLeft"
+                "key": "nextAppointment",
+                "label": "NEXT APPOINTMENT",
+                "value": "2021-08-28T00:00-18:00"
             }]
-        }
+        },
+        
+        # Location (if provided)
+        "locations": locations or [{
+            "longitude": 12.345678,
+            "latitude": 12.345678,
+            "relevantText": "You're near my home."
+        }],
+        
+        # Relevant date
+        "relevantDate": relevant_date or "2021-08-28T00:00-18:00"
     })
     
+    file_content = open('certs/icon.png', 'rb').read()
+    builder.add_file('icon.png', file_content)
+    file_content = open('certs/logo.png', 'rb').read()
+    builder.add_file('logo.png', file_content)
     pkpass_bytes = builder.build()
-    pkpass_file = open("mypass.pkpass", "wb")
+    pkpass_file = open("MyLoyaltyPass.pkpass", "wb")
     pkpass_file.write(pkpass_bytes)
     return HttpResponse(pkpass_bytes, content_type="application/vnd.apple.pkpass")
+
+@api_view(["GET"])
+def download_pass_view(request):
+    """Serve the generated pass file directly for testing"""
+    try:
+        pkpass_bytes = None
+        with open("MyLoyaltyPass.pkpass", "rb") as f:
+            print("Writing to file")
+            pkpass_bytes = f.read()
+        print(pkpass_bytes)
+        return HttpResponse(pkpass_bytes, content_type="application/vnd.apple.pkpass", content_disposition="attachment; filename=MyLoyaltyPass.pkpass")
+    except FileNotFoundError:
+        return HttpResponse("Pass file not found. Please create a pass first.", status=404)
+
+def test_page_view(request):
+    """Serve a simple HTML page for testing pass download"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Apple Wallet Pass Test</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .button { 
+                background-color: #007AFF; 
+                color: white; 
+                padding: 15px 30px; 
+                text-decoration: none; 
+                border-radius: 8px; 
+                display: inline-block; 
+                margin: 10px 0;
+            }
+            .info { background-color: #f0f0f0; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <h1>Apple Wallet Pass Test</h1>
+        
+        <div class="info">
+            <h3>Important Notes:</h3>
+            <ul>
+                <li>You need valid Apple Developer certificates to create working passes</li>
+                <li>The pass type identifier must match your Apple Developer account</li>
+                <li>Team identifier must match your Apple Developer account</li>
+                <li>Web service URL must be HTTPS and accessible</li>
+            </ul>
+        </div>
+        
+        <h2>Test Pass Download</h2>
+        <a href="/pass/download" class="button">Download Test Pass</a>
+        
+        <h2>Create New Pass</h2>
+        <form action="/pass/create" method="POST">
+            <p><label>Customer ID: <input type="text" name="customer_id" value="test123"></label></p>
+            <p><label>Background Color: <input type="text" name="backgroundColor" value="rgb(21, 21, 21)"></label></p>
+            <p><label>Foreground Color: <input type="text" name="foregroundColor" value="rgb(255, 255, 255)"></label></p>
+            <p><label>Label Color: <input type="text" name="labelColor" value="rgb(255, 255, 255)"></label></p>
+            <input type="submit" value="Create Pass" class="button">
+        </form>
+    </body>
+    </html>
+    """
+    return HttpResponse(html_content)
