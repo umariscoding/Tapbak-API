@@ -1,6 +1,5 @@
-from django.urls import path
-from . import views
-
+from django.urls import path 
+from loyalty.views import *
 urlpatterns = [
-    path("create", views.create_pass_view, name="create-pass"),
+    path("create", create_pass_view, name="create_pass")
 ]
