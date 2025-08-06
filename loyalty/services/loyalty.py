@@ -76,7 +76,6 @@ class LoyaltyService:
                 logo_response = requests.get(metadata["images"]["logo"])
                 if logo_response.status_code == 200:
                     self.builder.add_file("logo.png", logo_response.content)
-                    print(logo_response.content)
                 else:
                     print(f"Warning: Failed to fetch logo from {metadata['images']['logo']}")
          

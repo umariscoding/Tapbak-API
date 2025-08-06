@@ -3,19 +3,23 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import HttpResponse
 from loyalty.services.loyalty import LoyaltyService
+import json
 
-
-@api_view(["GET"])
-def create_pass_view(request):
+@api_view(["POST"])
+def create_pass_view(request, vendorName):
+    name = request.POST.get("name")
+    email = request.POST.get("email")
+    phone = request.POST.get("phone")
+    vendor = vendorName
     data = {
         "customerDetails": {
-            "name": "Subhan Doe",
-            "email": "john.doe@example.com",
-            "phone": "+1234567890"
+            "name": name,
+            "email": email,
+            "phone": phone
         },
         "vendorDetails": {
-            "name": "Tapbak Coffee Shop",
-            "description": "Loyalty Card for Tapbak Coffee Shop",
+            "name": vendor,
+            "description": "Loyalty Card for " + vendor,
             "colors": {
                 "background": "rgb(0,122,255)",
                 "foreground": "rgb(255,255,255)",
