@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,11 +35,13 @@ WALLETPASS_CONF = {
 WALLETPASS = {
     "CERT_PATH": str(BASE_DIR / "certs" / "signerCert.pem"),
     "KEY_PATH": str(BASE_DIR / "certs" / "signerKey.key"),
-
     "KEY_PASSWORD": None,
-    "PASS_TYPE_ID": "pass.co.tapback.loyalty",
-    "TEAM_ID": "QK2FSS3243",
-    "ORGANIZATION_NAME": "Tapbak",
+    # "PASS_TYPE_ID": "pass.co.tapback.loyalty",
+    # "TEAM_ID": "QK2FSS3243",
+    # "ORGANIZATION_NAME": "Tapbak",
+    "PASS_TYPE_ID" : os.getenv("PASS_TYPE_ID"),
+    "TEAM_ID" : os.getenv("TEAM_ID"),
+    "ORGANIZATION_NAME" : os.getenv("ORGANIZATION_NAME"),
 }
 # Application definition
 
@@ -50,9 +55,11 @@ INSTALLED_APPS = [
     'loyalty',
     'django_walletpass',
     'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -133,3 +140,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CORS_ALLOW_ALL_ORIGINS = True
