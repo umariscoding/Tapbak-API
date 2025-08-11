@@ -4,6 +4,7 @@ import uuid
 
 class Vendor(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
     business_name = models.CharField(max_length=255, null=True, blank=True)
     business_description = models.TextField(null=True, blank=True)
     email = models.EmailField(max_length=255, null=True, blank=True)

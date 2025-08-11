@@ -5,6 +5,8 @@ from django_walletpass.models import PassBuilder
 import requests
 from PIL import Image
 import io
+from dotenv import load_dotenv
+load_dotenv()
 
 class LoyaltyService:
     def __init__(self, request, context):
@@ -12,15 +14,13 @@ class LoyaltyService:
         self.context = context
         self.builder = PassBuilder()
 
-    def create_pass_json(self):
-        serialNumber = uuid.uuid4()
-        authenticationToken = uuid.uuid4()
+    def create_pass_json(self, serialNumber = uuid.uuid4(), authenticationToken = uuid.uuid4()):
         self.builder.pass_data_required.update({
             "passTypeIdentifier": os.getenv("PASS_TYPE_ID"),
             "teamIdentifier": os.getenv("TEAM_ID"),
             "organizationName": os.getenv("ORGANIZATION_NAME"),
             "serialNumber": str(serialNumber),
-            "webServiceURL": "https://3942d4f5abba.ngrok-free.app/pass/v1",
+            "webServiceURL": "https://9674bf5a250a.ngrok-free.app/pass",
             "authenticationToken": str(authenticationToken),
             "description": self.context["vendor"].business_name,
         })
@@ -68,13 +68,6 @@ class LoyaltyService:
             "secondaryFields": secondaryFields
         }
         pkbytes = self.builder.build()
-
-        # Only for testing Purposes
-        pkpass_file = open('test.pkpass', 'wb')
-        pkpass_file.write(pkbytes)
-        pkpass_file.close()
-        # End of testing
-        
         return pkbytes, {
             "authenticationToken": str(authenticationToken),
             "serialNumber": str(serialNumber),

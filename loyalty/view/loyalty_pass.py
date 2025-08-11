@@ -23,9 +23,13 @@ def create_pass_view(request, vendorId):
         "secondaryFields": secondaryFields,
         "passTemplate": passTemplate
     }
+    
     loyaltyService = LoyaltyService(request, context)
     passData, metadata = loyaltyService.create_pass_json()
-    create_loyalty_card_in_database(request, metadata)
+    loyaltyService.builder.write_to_model()
+    loyalty_card = create_loyalty_card_in_database(request, metadata)
+    customer.loyalty_card = loyalty_card
+    customer.save()
     return HttpResponse(passData, content_type="application/vnd.apple.pkpass")
 
 
@@ -44,7 +48,7 @@ def create_loyalty_card_in_database(request, metadata):
     LoyaltyCard.objects.create(
         loyalty_points=0,
         authentication_token=metadata["authenticationToken"],
-        web_service_url="https://3942d4f5abba.ngrok-free.app/pass/v1",
+        web_service_url="https://9674bf5a250a.ngrok-free.app/pass",
         serial_number=metadata["serialNumber"],
         meta_data=metadata['loyalty_metadata']
     )
