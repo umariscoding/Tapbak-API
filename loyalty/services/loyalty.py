@@ -1,3 +1,6 @@
+from loyalty.models import Customer, LoyaltyCard
+from django_walletpass.models import Pass
+import boto3
 import uuid
 import os
 from datetime import datetime
@@ -8,13 +11,14 @@ import io
 from dotenv import load_dotenv
 load_dotenv()
 
+
 class LoyaltyService:
     def __init__(self, request, context):
         self.request = request
         self.context = context
         self.builder = PassBuilder()
 
-    def create_pass_json(self, serialNumber = uuid.uuid4(), authenticationToken = uuid.uuid4()):
+    def create_pass_json(self, serialNumber=uuid.uuid4(), authenticationToken=uuid.uuid4()):
         self.builder.pass_data_required.update({
             "passTypeIdentifier": os.getenv("PASS_TYPE_ID"),
             "teamIdentifier": os.getenv("TEAM_ID"),
@@ -80,6 +84,14 @@ class LoyaltyService:
                 return self.context["customer"].first_name + " " + self.context["customer"].last_name
             case "date of birth":
                 dob = self.context["customer"].date_of_birth
+                if isinstance(dob, str):
+                    try:
+                        dob = datetime.fromisoformat(dob).date()
+                    except ValueError:
+                        try:
+                            dob = datetime.strptime(dob, "%Y-%m-%d").date()
+                        except Exception:
+                            return dob  # fallback: return as is if parsing fails
                 return dob.isoformat() if dob else ""
             case "email":
                 return self.context["customer"].email
@@ -99,67 +111,108 @@ class LoyaltyService:
             icon_url = self.context["passTemplate"].configuration.icon_url
             icon_data = requests.get(icon_url).content
             self.builder.add_file("icon.png", icon_data)
-        
+
         if self.context["passTemplate"].configuration.logo_url:
             logo_url = self.context["passTemplate"].configuration.logo_url
             logo_data = requests.get(logo_url).content
             self.builder.add_file("logo.png", logo_data)
 
         if self.context["passTemplate"].configuration.points_system == "stamps":
-                self.generate_image()
+            self.generate_image()
         elif self.context["passTemplate"].configuration.strip_image_url:
-                strip_image_url = self.context["passTemplate"].configuration.strip_image_url
-                strip_image_data = requests.get(strip_image_url).content
-                self.builder.add_file("strip.png", strip_image_data)
+            strip_image_url = self.context["passTemplate"].configuration.strip_image_url
+            strip_image_data = requests.get(strip_image_url).content
+            self.builder.add_file("strip.png", strip_image_data)
 
     def generate_image(self):
-        loyalty_points = 0
+        loyalty_points = self.context['customer'].loyalty_card.loyalty_points if self.context['customer'].loyalty_card else 0
         total_points = self.context["passTemplate"].configuration.total_points
         number_of_rows = 1 if total_points <= 5 else 2
         all_image = Image.new("RGBA", (1125, 432))
-        points_image = Image.open(os.path.join(os.path.dirname(__file__), 'public', 'filled.png'))
+        points_image = Image.open(os.path.join(
+            os.path.dirname(__file__), 'public', 'filled.png'))
         points_image = points_image.resize((200, 200)).convert("RGBA")
 
-        remaining_points_image = Image.open(os.path.join(os.path.dirname(__file__), 'public', 'not_filled.png'))
-        remaining_points_image = remaining_points_image.resize((200, 200)).convert("RGBA")
-       
+        remaining_points_image = Image.open(os.path.join(
+            os.path.dirname(__file__), 'public', 'not_filled.png'))
+        remaining_points_image = remaining_points_image.resize(
+            (200, 200)).convert("RGBA")
+
         stamp_width = 200
         stamp_height = 200
         total_stamps_per_row = 5
-        
+
         total_stamps_width = total_stamps_per_row * stamp_width
-        
+
         bg_width = all_image.width
         x_offset = (bg_width - total_stamps_width) // 2
-        
+
         bg_height = all_image.height
         total_stamps_height = number_of_rows * stamp_height
         y_offset = (bg_height - total_stamps_height) // 2
-        
+
         for i in range(number_of_rows):
             for j in range(5):
                 x_pos = x_offset + (j * stamp_width)
                 y_pos = y_offset + (i * stamp_height)
-                
+
                 if j < loyalty_points:
                     all_image.paste(points_image, (x_pos, y_pos), points_image)
                 else:
-                    all_image.paste(remaining_points_image, (x_pos, y_pos), remaining_points_image)
-            
+                    all_image.paste(remaining_points_image,
+                                    (x_pos, y_pos), remaining_points_image)
+
             if number_of_rows > 1 and i == 0:
                 loyalty_points_second_row = loyalty_points - 5
                 for k in range(5):
                     x_pos = x_offset + (k * stamp_width)
                     y_pos = y_offset + ((i + 1) * stamp_height)
-                    
+
                     if k < loyalty_points_second_row:
-                        all_image.paste(points_image, (x_pos, y_pos), points_image)
+                        all_image.paste(
+                            points_image, (x_pos, y_pos), points_image)
                     else:
-                        all_image.paste(remaining_points_image, (x_pos, y_pos), remaining_points_image)
+                        all_image.paste(remaining_points_image,
+                                        (x_pos, y_pos), remaining_points_image)
 
         img_byte_arr = io.BytesIO()
         all_image.save(img_byte_arr, format='PNG')
         img_byte_arr.seek(0)
         image_bytes = img_byte_arr.getvalue()
-        
+
         self.builder.add_file("strip.png", image_bytes)
+
+
+def upload_image_to_s3(file):
+    s3 = boto3.client('s3')
+    s3.upload_fileobj(file, os.getenv(
+        "AWS_STORAGE_BUCKET_NAME"), "listings/" + file.name)
+    return f"https://{os.getenv('AWS_STORAGE_BUCKET_NAME')}.s3.amazonaws.com/listings/{file.name}"
+
+
+def create_customer(firstName, lastName, email, phone, vendor, dateOfBirth):
+    customer = Customer.objects.create(
+        first_name=firstName,
+        last_name=lastName,
+        email=email,
+        contact_number=phone,
+        vendor=vendor,
+        date_of_birth=dateOfBirth
+    )
+    return customer
+
+
+def create_loyalty_card_in_database(request, metadata):
+    return LoyaltyCard.objects.create(
+        loyalty_points=0,
+        authentication_token=metadata["authenticationToken"],
+        web_service_url=os.getenv("WEB_SERVICE_URL"),
+        serial_number=metadata["serialNumber"],
+        meta_data=metadata['loyalty_metadata']
+    )
+
+
+def ping_apple_wallet(serial_number):
+    pass_obj = Pass.objects.get(serial_number=serial_number)
+    pass_obj.push_notification()
+    return True

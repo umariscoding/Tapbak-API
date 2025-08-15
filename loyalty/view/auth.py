@@ -18,21 +18,21 @@ class CookieAuthentication():
             'refresh_token',
             refresh_token,
             secure=True,  
-            samesite='None',  # Set to 'Lax' for localhost development
-            max_age=30*24*60*60,  # 30 days for refresh token
+            samesite='None',  
+            max_age=30*24*60*60,  
             path="/",
-            httponly=True  # Prevent XSS attacks
+            httponly=True  
         )
     
     def set_access_token(self, response, access_token):
         response.set_cookie(
             'access_token',
             access_token,
-            secure=True,  # Set to False for localhost development
-            samesite='None',  # Set to 'Lax' for localhost development
-            max_age=15*60,  # 15 minutes for access token
+            secure=True,  
+            samesite='None',  
+            max_age=15*60,  
             path="/",
-            httponly=True  # Prevent XSS attacks
+            httponly=True  
         )
 
 class CookieTokenRefreshView(TokenRefreshView):

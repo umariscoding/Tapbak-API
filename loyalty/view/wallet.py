@@ -7,7 +7,7 @@ from loyalty.services.loyalty import LoyaltyService
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 import json
-
+from datetime import datetime
 
 @api_view(["POST", "DELETE"])
 def register_device(request, device_library_id, pass_type_id, serial_number): 
@@ -30,11 +30,26 @@ def register_device(request, device_library_id, pass_type_id, serial_number):
 @api_view(["GET"])
 def get_updated_pass(request, device_library_id, pass_type_id):
     try:
-        # Get the last updated timestamp for the device
-        # This should be implemented based on your business logic
+        passes_updated_since = request.GET.get("passesUpdatedSince")
+        from datetime import datetime
+        from loyalty.models import LoyaltyCard
+        if passes_updated_since:
+            try:
+                passes_updated_since = datetime.fromisoformat(passes_updated_since)
+            except Exception:
+                # fallback for Zulu time (strip Z)
+                passes_updated_since = datetime.fromisoformat(passes_updated_since.rstrip("Z"))
+        else:
+            passes_updated_since = datetime.min
+
+        updated_cards = LoyaltyCard.objects.all()
+
+        serial_numbers = list(updated_cards.values_list("serial_number", flat=True))
+        last_updated = updated_cards.order_by("-updated_at").first().updated_at if updated_cards else datetime.now()
+
         response_data = {
-            "serialNumbers": ["2e59835f-9a0c-4da9-bdf6-b556f2b8ea49"],
-            "lastUpdated": "1351981923"
+            "serialNumbers": serial_numbers,
+            "lastUpdated": last_updated.isoformat() if last_updated else datetime.now().isoformat()
         }
         return JsonResponse(response_data, content_type="application/json")
     except Exception as e:
