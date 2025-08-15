@@ -8,6 +8,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 import json
 from datetime import datetime
+import re
 
 @api_view(["POST", "DELETE"])
 def register_device(request, device_library_id, pass_type_id, serial_number): 
@@ -30,18 +31,9 @@ def register_device(request, device_library_id, pass_type_id, serial_number):
 @api_view(["GET"])
 def get_updated_pass(request, device_library_id, pass_type_id):
     try:
-        passes_updated_since = request.GET.get("passesUpdatedSince")
         from datetime import datetime
         from loyalty.models import LoyaltyCard
-        if passes_updated_since:
-            try:
-                passes_updated_since = datetime.fromisoformat(passes_updated_since)
-            except Exception:
-                # fallback for Zulu time (strip Z)
-                passes_updated_since = datetime.fromisoformat(passes_updated_since.rstrip("Z"))
-        else:
-            passes_updated_since = datetime.min
-
+       
         updated_cards = LoyaltyCard.objects.all()
 
         serial_numbers = list(updated_cards.values_list("serial_number", flat=True))
