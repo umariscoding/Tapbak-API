@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view
 from django_walletpass.classviews import RegisterPassViewSet
 from rest_framework.response import Response
 from rest_framework import status
-from loyalty.models import Vendor, PassTemplate, TemplateField, LoyaltyCard, Customer
+from loyalty.models import Vendor, PassTemplate, TemplateField, LoyaltyCard, Customer, Reward
 from loyalty.services.loyalty import LoyaltyService
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -52,6 +52,8 @@ def serve_updated_pass(request, pass_type_id, serial_number):
         templateFields = TemplateField.objects.filter(pass_template=passTemplate)
         
         headerField = templateFields.filter(field_type="header").first()
+        
+        noOfRewards = Reward.objects.filter(customer=customer, status="available").count()
         secondaryFields = templateFields.filter(field_type="secondary")
         
         context = {
@@ -59,7 +61,8 @@ def serve_updated_pass(request, pass_type_id, serial_number):
             "vendor": vendor,
             "headerField": headerField,
             "secondaryFields": secondaryFields,
-            "passTemplate": passTemplate
+            "passTemplate": passTemplate,
+            "noOfRewards": noOfRewards
         }
         
         loyaltyService = LoyaltyService(request, context)

@@ -20,7 +20,7 @@ class LoyaltyService:
             "teamIdentifier": os.getenv("TEAM_ID"),
             "organizationName": os.getenv("ORGANIZATION_NAME"),
             "serialNumber": str(serialNumber),
-            "webServiceURL": "https://9674bf5a250a.ngrok-free.app/pass",
+            "webServiceURL": os.getenv("WEB_SERVICE_URL"),
             "authenticationToken": str(authenticationToken),
             "description": self.context["vendor"].business_name,
         })
@@ -79,15 +79,18 @@ class LoyaltyService:
             case "name":
                 return self.context["customer"].first_name + " " + self.context["customer"].last_name
             case "date of birth":
-                return datetime.now().strftime("%Y-%m-%d")
+                dob = self.context["customer"].date_of_birth
+                return dob.isoformat() if dob else ""
             case "email":
                 return self.context["customer"].email
             case "phone":
                 return self.context["customer"].phone
             case "loyalty points":
-                return 0
+                return self.context["customer"].loyalty_card.loyalty_points if self.context["customer"].loyalty_card else 0
             case "rewards":
-                return 0
+                return self.context["noOfRewards"]
+            case "award_available":
+                return self.context["customer"].loyalty_card.reward_available if self.context["customer"].loyalty_card else 0
             case _:
                 return ""
 

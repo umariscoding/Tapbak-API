@@ -10,10 +10,16 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 import os
 load_dotenv()
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "ngrok-skip-browser-warning",
+]
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,16 +37,33 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 WALLETPASS_CONF = {
     "APPLE_WWDRCA_PEM_PATH": str(BASE_DIR / "certs" / "wwdr.pem"),
+    "WALLETPASS_PUSH_CLASS": "django_walletpass.services.PushBackend",
+    "TOKEN_AUTH_KEY_PATH": str(BASE_DIR / "certs" / "Production_APN_Key.p8"),
+    "TOKEN_AUTH_KEY_ID": "72F6C4L7BL",
+    "TEAM_ID": os.getenv("TEAM_ID"),
+    "PASS_TYPE_ID": os.getenv("PASS_TYPE_ID"),
+    "PUSH_SANDBOX": False, 
 }
+# Ensure APNs credentials are available as environment variables for aioapns/django_walletpass
+os.environ["TOKEN_AUTH_KEY_ID"] = WALLETPASS_CONF["TOKEN_AUTH_KEY_PATH"]
+os.environ["TOKEN_AUTH_KEY_ID"] = WALLETPASS_CONF["TOKEN_AUTH_KEY_ID"]
+os.environ["APNS_TEAM_ID"] = WALLETPASS_CONF["TEAM_ID"]
+
+# Patch django_walletpass.settings.dwpconfig at runtime to ensure correct config is always used
+try:
+    import django_walletpass.settings as dwp_settings
+    dwp_settings.dwpconfig.update(WALLETPASS_CONF)
+except Exception as e:
+    print("[WARNING] Could not patch django_walletpass.settings.dwpconfig:", e)
 WALLETPASS = {
     "CERT_PATH": str(BASE_DIR / "certs" / "signerCert.pem"),
     "KEY_PATH": str(BASE_DIR / "certs" / "signerKey.key"),
     "KEY_PASSWORD": None,
-    # "PASS_TYPE_ID": "pass.co.tapback.loyalty",
-    # "TEAM_ID": "QK2FSS3243",
-    # "ORGANIZATION_NAME": "Tapbak",
     "PASS_TYPE_ID" : os.getenv("PASS_TYPE_ID"),
     "TEAM_ID" : os.getenv("TEAM_ID"),
+    "PUSH_SANDBOX" : False,
+    "TOKEN_AUTH_KEY_PATH": str(BASE_DIR / "certs" / "Production_APN_Key.p8"),
+    "TOKEN_AUTH_KEY_ID": "72F6C4L7BL",
     "ORGANIZATION_NAME" : os.getenv("ORGANIZATION_NAME"),
 }
 # Application definition
@@ -56,6 +79,65 @@ INSTALLED_APPS = [
     'django_walletpass',
     'rest_framework',
     'corsheaders',
+    'storages',
+]
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN")
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": BASE_DIR / "media",
+            "base_url": "/media/",
+        },
+    },
+    "s3": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "AWS_S3_OBJECT_PARAMETERS": {
+                "CacheControl": "max-age=86400",
+            },
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+        },
+    },
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'loyalty.authentication.CookieJWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
+
+# CORS settings for credentials (cookies/auth): allow only explicit origins
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://0451fbe0860f.ngrok-free.app",
+    "https://f64dce6c7791.ngrok-free.app",
+    "https://018c061d20bf.ngrok-free.app"
+]
+# Optionally, comment out or remove CORS_ALLOWED_ORIGIN_REGEXES if not needed
+# CORS_ALLOWED_ORIGIN_REGEXES = []
+
+
+CORS_EXPOSE_HEADERS = [
+    'set-cookie',
+    'access-control-allow-credentials',
+    'access-control-allow-origin',
+    'access-control-allow-methods',
+    'access-control-allow-headers',
 ]
 
 MIDDLEWARE = [
@@ -141,4 +223,7 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+}
