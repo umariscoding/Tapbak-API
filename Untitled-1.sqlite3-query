@@ -1,0 +1,4 @@
+-- database: ./db.sqlite3
+
+SELECT * FROM template_field
+where pass_template_id = '537df6d3-b39b-4ec6-8f89-dd5a3a096ca3'

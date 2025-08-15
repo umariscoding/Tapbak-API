@@ -1,131 +1,218 @@
+from loyalty.models import Customer, LoyaltyCard
+from django_walletpass.models import Pass
+import boto3
 import uuid
 import os
 from datetime import datetime
 from django_walletpass.models import PassBuilder
 import requests
+from PIL import Image
+import io
+from dotenv import load_dotenv
+load_dotenv()
+
 
 class LoyaltyService:
-    def __init__(self, request):
+    def __init__(self, request, context):
         self.request = request
+        self.context = context
         self.builder = PassBuilder()
 
-    def create_pass_json(self, customerDetails, vendorDetails):
-        metadata = self.create_metadata(customerDetails, vendorDetails)
-
+    def create_pass_json(self, serialNumber=uuid.uuid4(), authenticationToken=uuid.uuid4()):
         self.builder.pass_data_required.update({
             "passTypeIdentifier": os.getenv("PASS_TYPE_ID"),
             "teamIdentifier": os.getenv("TEAM_ID"),
             "organizationName": os.getenv("ORGANIZATION_NAME"),
-            "serialNumber": metadata["serialNumber"],
-            "webServiceURL":"https://3942d4f5abba.ngrok-free.app/pass/v1",
-            "authenticationToken": metadata["authenticationToken"],
-            "description": metadata["description"],
+            "serialNumber": str(serialNumber),
+            "webServiceURL": os.getenv("WEB_SERVICE_URL"),
+            "authenticationToken": str(authenticationToken),
+            "description": self.context["vendor"].business_name,
         })
 
+        secondaryFields = []
+        headerFields = []
+        for field in self.context["secondaryFields"]:
+            secondaryFields.append({
+                "key": field.field_definition.name,
+                "label": field.field_definition.name,
+                "value": self.get_value(field),
+                "changeMessage": "0"
+            })
+        headerFields.append({
+            "key": self.context["headerField"].field_definition.name,
+            "label": self.context["headerField"].field_definition.name,
+            "value": self.get_value(self.context["headerField"]),
+            "changeMessage": "0"
+        })
         self.builder.pass_data.update({
             "formatVersion": 1,
-            "backgroundColor": metadata["colors"]["background"],
-            "foregroundColor": metadata["colors"]["foreground"],
-            "labelColor": metadata["colors"]["label"],
+            "backgroundColor": self.context['passTemplate'].configuration.background_color,
+            "foregroundColor": self.context['passTemplate'].configuration.foreground_color,
+            "labelColor": self.context['passTemplate'].configuration.label_color,
+            "logoText": self.context["vendor"].business_name,
             "images": {
-                "logo": "logo.png",
                 "icon": "icon.png",
-                "stripImage": "strip.png",
+                "logo": "logo.png",
+                "stripImage": "strip.png"
             },
 
-            "logoText": metadata["vendorDetails"]["name"],
             "barcode": {
-                "message": metadata["customerId"],
+                "message": str(self.context["customer"].id),
                 "format": "PKBarcodeFormatQR",
-                "messageEncoding": "iso-8859-1",
+                "messageEncoding": "iso-8859-1"
             },
             "storeCard": {
-                "headerFields": [
-                    {
-                        "key": "Points",
-                        "label": "Points",
-                        "value": metadata["loyaltyPoints"]
-                    }
-                ],
-                "secondaryFields": [
-                    {
-                        "key": "Name",
-                        "label": "Name",
-                        "value": metadata["customerDetails"]["name"]
-                    },
-                    {
-                        "key": "Member Since",
-                        "label": "Member Since",
-                        "value": datetime.now().strftime("%Y-%m-%d")
-                    }
-                ]
+                "headerFields": headerFields,
+                "secondaryFields": secondaryFields
             }
         })
-
-        try: 
-            if metadata["images"]["stripImage"]:
-                strip_response = requests.get(metadata["images"]["stripImage"])
-                if strip_response.status_code == 200:
-                    self.builder.add_file("strip.png", strip_response.content)
-                else:
-                    print(f"Warning: Failed to fetch strip image from {metadata['images']['stripImage']}")
-        except Exception as e:
-            print(f"Warning: Could not add strip image: {e}")
-        try:
-            if metadata["images"]["logo"]:
-                logo_response = requests.get(metadata["images"]["logo"])
-                if logo_response.status_code == 200:
-                    self.builder.add_file("logo.png", logo_response.content)
-                else:
-                    print(f"Warning: Failed to fetch logo from {metadata['images']['logo']}")
-         
-        except Exception as e:
-            print(f"Warning: Could not add logo image: {e}")
-            print(metadata["images"]["logo"])
-
-        try:
-            if metadata["images"]["icon"]:
-                icon_response = requests.get(metadata["images"]["icon"])
-                if icon_response.status_code == 200:
-                    self.builder.add_file("icon.png", icon_response.content)
-                else:
-                    print(f"Warning: Failed to fetch icon from {metadata['images']['icon']}")
-        except Exception as e:
-            print(f"Warning: Could not add icon image: {e}")
-           
-        
-        return self.builder.build()
-
-    def create_metadata(self, customerDetails, vendorDetails):
-        customerId = str(uuid.uuid4())
-        authenticationToken = str(uuid.uuid4())
-        webServiceURL = "https://3942d4f5abba.ngrok-free.app/pass/v1"
-        teamID = os.getenv("TEAM_ID")
-        passTypeIdentifier = os.getenv("PASS_TYPE_ID")
-        organizationName = os.getenv("ORGANIZATION_NAME")
-        serialNumber = customerId
-        description = vendorDetails["description"]
-        colors = vendorDetails["colors"]
-        loyaltyPoints = 0
-        images = {
-            "logo": vendorDetails["logo"],
-            "icon": vendorDetails["logo"],
-            "stripImage": vendorDetails["stripImage"],
-            "backgroundImage": vendorDetails["backgroundImage"],
+        self.getImages()
+        loyalty_metadata = {
+            "headerFields": headerFields,
+            "secondaryFields": secondaryFields
+        }
+        pkbytes = self.builder.build()
+        return pkbytes, {
+            "authenticationToken": str(authenticationToken),
+            "serialNumber": str(serialNumber),
+            "loyalty_metadata": loyalty_metadata
         }
 
-        return {
-            "customerId": customerId,
-            "authenticationToken": authenticationToken,
-            "webServiceURL": webServiceURL,
-            "teamID": teamID,
-            "passTypeIdentifier": passTypeIdentifier,
-            "organizationName": organizationName,
-            "serialNumber": serialNumber,
-            "description": description,
-            "colors": colors,
-            "loyaltyPoints": loyaltyPoints,
-            "images": images,
-            "customerDetails": customerDetails,
-            "vendorDetails": vendorDetails,
-        }
+    def get_value(self, formDefinition):
+        match (formDefinition.field_definition.name.lower()):
+            case "name":
+                return self.context["customer"].first_name + " " + self.context["customer"].last_name
+            case "date of birth":
+                dob = self.context["customer"].date_of_birth
+                if isinstance(dob, str):
+                    try:
+                        dob = datetime.fromisoformat(dob).date()
+                    except ValueError:
+                        try:
+                            dob = datetime.strptime(dob, "%Y-%m-%d").date()
+                        except Exception:
+                            return dob  # fallback: return as is if parsing fails
+                return dob.isoformat() if dob else ""
+            case "email":
+                return self.context["customer"].email
+            case "phone":
+                return self.context["customer"].phone
+            case "loyalty points":
+                return self.context["customer"].loyalty_card.loyalty_points if self.context["customer"].loyalty_card else 0
+            case "rewards":
+                return self.context["noOfRewards"]
+            case "award_available":
+                return self.context["customer"].loyalty_card.reward_available if self.context["customer"].loyalty_card else 0
+            case _:
+                return ""
+
+    def getImages(self):
+        if self.context["passTemplate"].configuration.icon_url:
+            icon_url = self.context["passTemplate"].configuration.icon_url
+            icon_data = requests.get(icon_url).content
+            self.builder.add_file("icon.png", icon_data)
+
+        if self.context["passTemplate"].configuration.logo_url:
+            logo_url = self.context["passTemplate"].configuration.logo_url
+            logo_data = requests.get(logo_url).content
+            self.builder.add_file("logo.png", logo_data)
+
+        if self.context["passTemplate"].configuration.points_system == "stamps":
+            self.generate_image()
+        elif self.context["passTemplate"].configuration.strip_image_url:
+            strip_image_url = self.context["passTemplate"].configuration.strip_image_url
+            strip_image_data = requests.get(strip_image_url).content
+            self.builder.add_file("strip.png", strip_image_data)
+
+    def generate_image(self):
+        loyalty_points = self.context['customer'].loyalty_card.loyalty_points if self.context['customer'].loyalty_card else 0
+        total_points = self.context["passTemplate"].configuration.total_points
+        number_of_rows = 1 if total_points <= 5 else 2
+        all_image = Image.new("RGBA", (1125, 432))
+        points_image = Image.open(os.path.join(
+            os.path.dirname(__file__), 'public', 'filled.png'))
+        points_image = points_image.resize((200, 200)).convert("RGBA")
+
+        remaining_points_image = Image.open(os.path.join(
+            os.path.dirname(__file__), 'public', 'not_filled.png'))
+        remaining_points_image = remaining_points_image.resize(
+            (200, 200)).convert("RGBA")
+
+        stamp_width = 200
+        stamp_height = 200
+        total_stamps_per_row = 5
+
+        total_stamps_width = total_stamps_per_row * stamp_width
+
+        bg_width = all_image.width
+        x_offset = (bg_width - total_stamps_width) // 2
+
+        bg_height = all_image.height
+        total_stamps_height = number_of_rows * stamp_height
+        y_offset = (bg_height - total_stamps_height) // 2
+
+        for i in range(number_of_rows):
+            for j in range(5):
+                x_pos = x_offset + (j * stamp_width)
+                y_pos = y_offset + (i * stamp_height)
+
+                if j < loyalty_points:
+                    all_image.paste(points_image, (x_pos, y_pos), points_image)
+                else:
+                    all_image.paste(remaining_points_image,
+                                    (x_pos, y_pos), remaining_points_image)
+
+            if number_of_rows > 1 and i == 0:
+                loyalty_points_second_row = loyalty_points - 5
+                for k in range(5):
+                    x_pos = x_offset + (k * stamp_width)
+                    y_pos = y_offset + ((i + 1) * stamp_height)
+
+                    if k < loyalty_points_second_row:
+                        all_image.paste(
+                            points_image, (x_pos, y_pos), points_image)
+                    else:
+                        all_image.paste(remaining_points_image,
+                                        (x_pos, y_pos), remaining_points_image)
+
+        img_byte_arr = io.BytesIO()
+        all_image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        image_bytes = img_byte_arr.getvalue()
+
+        self.builder.add_file("strip.png", image_bytes)
+
+
+def upload_image_to_s3(file):
+    s3 = boto3.client('s3')
+    s3.upload_fileobj(file, os.getenv(
+        "AWS_STORAGE_BUCKET_NAME"), "listings/" + file.name)
+    return f"https://{os.getenv('AWS_STORAGE_BUCKET_NAME')}.s3.amazonaws.com/listings/{file.name}"
+
+
+def create_customer(firstName, lastName, email, phone, vendor, dateOfBirth):
+    customer = Customer.objects.create(
+        first_name=firstName,
+        last_name=lastName,
+        email=email,
+        contact_number=phone,
+        vendor=vendor,
+        date_of_birth=dateOfBirth
+    )
+    return customer
+
+
+def create_loyalty_card_in_database(request, metadata):
+    return LoyaltyCard.objects.create(
+        loyalty_points=0,
+        authentication_token=metadata["authenticationToken"],
+        web_service_url=os.getenv("WEB_SERVICE_URL"),
+        serial_number=metadata["serialNumber"],
+        meta_data=metadata['loyalty_metadata']
+    )
+
+
+def ping_apple_wallet(serial_number):
+    pass_obj = Pass.objects.get(serial_number=serial_number)
+    pass_obj.push_notification()
+    return True
