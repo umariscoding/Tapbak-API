@@ -24,17 +24,22 @@ class LoyaltyService:
             "teamIdentifier": os.getenv("TEAM_ID"),
             "organizationName": os.getenv("ORGANIZATION_NAME"),
             "serialNumber": str(serialNumber),
-            "webServiceURL": os.getenv("WEB_SERVICE_URL"),
+            "webServiceURL": "https://1aa1839d744b.ngrok-free.app/pass",
             "authenticationToken": str(authenticationToken),
             "description": self.context["vendor"].business_name,
         })
 
         secondaryFields = []
         headerFields = []
+        seen_keys = set()
         for field in self.context["secondaryFields"]:
+            key = field.field_definition.name
+            if key in seen_keys:
+                continue  # skip duplicate
+            seen_keys.add(key)
             secondaryFields.append({
-                "key": field.field_definition.name,
-                "label": field.field_definition.name,
+                "key": key,
+                "label": key,
                 "value": self.get_value(field),
                 "changeMessage": "0"
             })
