@@ -120,14 +120,7 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS settings for credentials (cookies/auth): allow only explicit origins
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://0451fbe0860f.ngrok-free.app",
-    "https://f64dce6c7791.ngrok-free.app",
-    "https://018c061d20bf.ngrok-free.app"
-]
+CORS_ALLOW_ALL_ORIGINS = True
 # Optionally, comment out or remove CORS_ALLOWED_ORIGIN_REGEXES if not needed
 # CORS_ALLOWED_ORIGIN_REGEXES = []
 
